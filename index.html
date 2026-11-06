@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>رحلة مع سفر طوبيا</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f6f3ec;--card:#fff;--ink:#26352d;--muted:#718078;--green:#315b45;--gold:#c69b52;--line:#e7e2d8;--red:#a94442}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Tahoma,Arial,sans-serif}
+header{background:linear-gradient(135deg,#244b39,#426b51);color:#fff;padding:28px 18px 34px;text-align:center}
+header h1{margin:0 0 8px;font-size:26px}header p{margin:0;color:#e4eee6}
+nav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:16px auto 0}
+button,.btn{border:0;border-radius:12px;padding:12px 16px;background:var(--green);color:white;font-weight:bold;font-size:15px;cursor:pointer}
+button.secondary{background:#e9eee9;color:var(--green)}button.gold{background:var(--gold);color:#2d2b24}button.danger{background:var(--red)}
+main{max-width:980px;margin:22px auto;padding:0 14px 50px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 18px #29382d0a}
+h2{margin:0 0 14px;font-size:21px}h3{margin:0 0 8px}label{display:block;font-weight:bold;margin:12px 0 6px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d8ded8;border-radius:10px;background:#fff;font:inherit;color:var(--ink)}
+textarea{min-height:80px} .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.muted{color:var(--muted);font-size:13px}.pill{display:inline-block;border-radius:30px;padding:5px 10px;background:#edf3ed;color:var(--green);font-size:12px;font-weight:bold}
+.hidden{display:none!important}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:#f5f7f3;border-radius:13px;padding:14px}.stat strong{font-size:25px;display:block;color:var(--green)}
+.listitem{padding:13px 0;border-bottom:1px solid var(--line)}.listitem:last-child{border:0}
+.q{padding:14px;background:#faf9f5;border-radius:12px;margin:10px 0}.q label{font-weight:normal}
+.notice{padding:12px;border-radius:10px;background:#fff5df;color:#73551c;margin:12px 0}
+.ok{color:#247344}.bad{color:#a94442}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+<h1>رحلة مع سفر طوبيا</h1><p>نقرأ معًا، نفهم معًا، ونكمل الرحلة معًا</p>
+<nav><button class="secondary" onclick="showTab('participant')">صفحة المشارك</button><button class="secondary" onclick="showTab('admin')">لوحة المسؤول</button></nav>
+</header>
+<main>
+<section id="setup" class="card">
+<h2>إعداد الاتصال بقاعدة البيانات</h2>
+<p>قبل الاستخدام، أدخل بيانات مشروع Supabase في ملف index.html كما هو موضح في دليل التشغيل.</p>
+<p class="muted">لا تضع أبدًا Service Role Key أو كلمة مرور المسؤول داخل هذه الصفحة.</p>
+<div id="connectionStatus" class="notice">لم يتم إعداد الاتصال بعد.</div>
+</section>
+
+<section id="participant" class="card">
+<h2>دخول المشاركين</h2>
+<div id="participantArea">
+<label>اختار اسمك</label><select id="participantSelect"><option value="">تحميل الأسماء...</option></select>
+<div id="readingArea" class="hidden">
+<div class="card" style="background:#faf9f5">
+<span class="pill" id="dayLabel">قراءة اليوم</span><h2 id="readingTitle" style="margin-top:12px">—</h2>
+<p id="readingPassage" class="muted"></p><p id="readingNotes"></p>
+<button id="completeBtn" onclick="markComplete()">أنهيت القراءة</button>
+<p id="progressMessage" class="muted"></p>
+</div>
+<div id="questionsArea"></div>
+</div>
+</div>
+</section>
+
+<section id="admin" class="hidden">
+<div class="card">
+<h2>دخول المسؤول</h2>
+<p class="muted">دخول آمن بحساب المسؤول الذي تنشئه في Supabase Authentication. لا تستخدم رقم PIN مكشوفًا في كود الموقع.</p>
+<label>البريد الإلكتروني</label><input id="adminEmail" type="email" placeholder="admin@example.com">
+<label>كلمة المرور</label><input id="adminPassword" type="password" placeholder="كلمة مرور حساب المسؤول">
+<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="adminLogin()">دخول</button><button class="secondary" onclick="adminLogout()">تسجيل الخروج</button></div>
+<p id="adminMessage" class="muted"></p>
+</div>
+<div id="adminPanel" class="hidden">
+<div class="card"><h2>ملخص المتابعة</h2><div class="stats">
+<div class="stat"><strong id="totalPeople">0</strong><span>المشاركون</span></div>
+<div class="stat"><strong id="donePeople">0</strong><span>أتموا قراءة اليوم</span></div>
+<div class="stat"><strong id="notDonePeople">0</strong><span>لم يتموا القراءة</span></div>
+</div></div>
+<div class="card"><h2>إضافة مشارك</h2><label>اسم المشارك</label><input id="newParticipant" placeholder="الاسم بالكامل"><button style="margin-top:10px" onclick="addParticipant()">إضافة الاسم</button></div>
+<div class="card"><h2>تحديد قراءة جديدة</h2>
+<div class="row"><div><label>عنوان اليوم / الجزء</label><input id="dayTitle" placeholder="مثال: اليوم الأول"></div><div><label>مرجع القراءة</label><input id="passage" placeholder="طوبيا 1: 1–22"></div></div>
+<label>شرح أو تعليمات القراءة</label><textarea id="notes" placeholder="اكتب أي توجيهات للمشاركين"></textarea>
+<label>تاريخ القراءة</label><input id="readingDate" type="date">
+<label style="display:flex;gap:8px;align-items:center"><input id="published" type="checkbox" style="width:auto"> نشر القراءة للمشاركين</label>
+<button style="margin-top:10px" onclick="addReading()">حفظ القراءة</button>
+</div>
+<div class="card"><h2>إضافة سؤال للقراءة المنشورة</h2>
+<label>اختر القراءة</label><select id="questionDay"></select>
+<label>السؤال</label><input id="questionText" placeholder="اكتب السؤال">
+<label>الاختيار الأول</label><input id="opt1">
+<label>الاختيار الثاني</label><input id="opt2">
+<label>الاختيار الثالث</label><input id="opt3">
+<label>الإجابة الصحيحة</label><select id="correct"><option value="0">الاختيار الأول</option><option value="1">الاختيار الثاني</option><option value="2">الاختيار الثالث</option></select>
+<button style="margin-top:10px" onclick="addQuestion()">إضافة السؤال</button>
+</div>
+<div class="card"><h2>حالة المشاركين</h2><div id="adminProgress" class="muted">اختر قراءة لعرض حالة المشاركين.</div><label>عرض حالة قراءة</label><select id="progressDay" onchange="loadProgress()"></select></div>
+</div>
+</section>
+</main><footer>رحلة مع سفر طوبيا · نسخة أولية قابلة للتطوير</footer>
+<script>
+// ضع Project URL و anon public key من إعدادات Supabase هنا فقط.
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+let db = null, selectedParticipant = null, currentReading = null, session = null;
+if (SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY") {
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  document.getElementById('connectionStatus').textContent = "تم إدخال بيانات الاتصال. جاري تحميل البيانات...";
+  init();
+}
+function showTab(tab){document.getElementById('participant').classList.toggle('hidden',tab!=='participant');document.getElementById('admin').classList.toggle('hidden',tab!=='admin');}
+async function init(){await loadParticipants();await loadPublishedReading();if(db){const {data}=await db.auth.getSession();session=data.session;if(session) await showAdmin();}}
+function msg(id,t){document.getElementById(id).textContent=t;}
+async function loadParticipants(){
+ if(!db)return; const {data,error}=await db.from('participants').select('id,name,active').eq('active',true).order('name');
+ const s=document.getElementById('participantSelect');s.innerHTML='<option value="">اختار اسمك</option>';
+ if(error){s.innerHTML='<option>تعذر تحميل الأسماء</option>';return}
+ (data||[]).forEach(p=>{let o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o)});
+ s.onchange=async()=>{selectedParticipant=s.value||null;document.getElementById('readingArea').classList.toggle('hidden',!selectedParticipant);if(selectedParticipant){await loadPublishedReading();}};
+}
+async function loadPublishedReading(){
+ if(!db)return;const {data,error}=await db.from('reading_days').select('*').eq('published',true).order('reading_date',{ascending:false}).limit(1).maybeSingle();
+ if(error||!data){document.getElementById('readingTitle').textContent='لا توجد قراءة منشورة حاليًا';return}
+ currentReading=data;document.getElementById('readingTitle').textContent=data.title;document.getElementById('readingPassage').textContent=data.passage||'';document.getElementById('readingNotes').textContent=data.notes||'';document.getElementById('dayLabel').textContent=data.reading_date||'قراءة اليوم';
+ await loadParticipantStatus();await loadQuestions();
+}
+async function loadParticipantStatus(){
+ if(!db||!selectedParticipant||!currentReading)return;
+ const localDone=localStorage.getItem('tobia_done_'+selectedParticipant+'_'+currentReading.id)==='1';
+ const done=localDone;document.getElementById('completeBtn').disabled=done;document.getElementById('completeBtn').textContent=done?'تم تسجيل إتمام القراءة ✓':'أنهيت القراءة';msg('progressMessage',done?'تم تسجيل قراءتك لهذا الجزء.':'بعد الانتهاء اضغط على زر تأكيد القراءة.');
+}
+async function markComplete(){
+ if(!selectedParticipant||!currentReading)return alert('اختار اسمك أولًا');
+ const {error}=await db.from('progress').upsert({participant_id:selectedParticipant,reading_day_id:currentReading.id,completed:true,completed_at:new Date().toISOString()},{onConflict:'participant_id,reading_day_id'});
+ if(error){alert('لم يتم تسجيل القراءة: '+error.message);return}localStorage.setItem('tobia_done_'+selectedParticipant+'_'+currentReading.id,'1');await loadParticipantStatus();alert('تم تسجيل إتمام القراءة.');
+}
+async function loadQuestions(){
+ const box=document.getElementById('questionsArea');box.innerHTML='';if(!currentReading)return;
+ const {data,error}=await db.from('questions').select('*').eq('reading_day_id',currentReading.id).order('created_at');
+ if(error||!data?.length){box.innerHTML='<p class="muted">لا توجد أسئلة مضافة لهذا الجزء حتى الآن.</p>';return}
+ box.innerHTML='<div class="card"><h2>أسئلة الجزء</h2><p class="muted">اختر إجابة كل سؤال ثم أرسل إجاباتك.</p><div id="quiz"></div><button onclick="submitAnswers()">إرسال الإجابات</button><p id="quizResult" class="muted"></p></div>';
+ const qbox=document.getElementById('quiz');
+ data.forEach((q,i)=>{let div=document.createElement('div');div.className='q';let title=document.createElement('strong');title.textContent=(i+1)+'. '+q.question_text;div.appendChild(title);
+ [q.option_1,q.option_2,q.option_3].forEach((opt,j)=>{let l=document.createElement('label');let r=document.createElement('input');r.type='radio';r.name='q'+q.id;r.value=j;r.style.width='auto';l.append(r,document.createTextNode(' '+opt));div.appendChild(l)});qbox.appendChild(div)});
+ window.activeQuestions=data;
+}
+async function submitAnswers(){
+ if(!selectedParticipant)return alert('اختار اسمك أولًا');let score=0;
+ for(const q of (window.activeQuestions||[])){const a=document.querySelector('input[name="q'+q.id+'"]:checked');if(!a)return alert('جاوب عن كل الأسئلة أولًا');const selected=Number(a.value);
+ const {data:correct,error}=await db.rpc('submit_answer',{p_participant_id:selectedParticipant,p_question_id:q.id,p_selected_option:Number(a.value)});if(error){alert('تعذر حفظ الإجابة: '+error.message);return}if(correct)score++;}
+ msg('quizResult',`نتيجتك: ${score} من ${(window.activeQuestions||[]).length}`);
+}
+async function adminLogin(){if(!db)return alert('أدخل بيانات Supabase أولًا');const {data,error}=await db.auth.signInWithPassword({email:document.getElementById('adminEmail').value,password:document.getElementById('adminPassword').value});if(error){msg('adminMessage','فشل الدخول: '+error.message);return}session=data.session;await showAdmin();}
+async function adminLogout(){if(db)await db.auth.signOut();session=null;document.getElementById('adminPanel').classList.add('hidden');msg('adminMessage','تم تسجيل الخروج.');}
+async function showAdmin(){
+ document.getElementById('adminPanel').classList.remove('hidden');msg('adminMessage','تم تسجيل الدخول.');await loadAdminLists();await loadAdminStats();
+}
+async function loadAdminLists(){
+ const {data}=await db.from('reading_days').select('id,title,reading_date').order('reading_date',{ascending:false});
+ ['questionDay','progressDay'].forEach(id=>{const s=document.getElementById(id);s.innerHTML='';(data||[]).forEach(d=>{let o=document.createElement('option');o.value=d.id;o.textContent=d.title+' — '+d.reading_date;s.appendChild(o)})});
+}
+async function addParticipant(){
+ const name=document.getElementById('newParticipant').value.trim();if(!name)return alert('اكتب الاسم');
+ const {error}=await db.from('participants').insert({name});if(error){alert(error.message);return}document.getElementById('newParticipant').value='';await loadParticipants();await loadAdminStats();alert('تمت إضافة المشارك.');
+}
+async function addReading(){
+ const title=document.getElementById('dayTitle').value.trim(),passage=document.getElementById('passage').value.trim(),date=document.getElementById('readingDate').value;
+ if(!title||!date)return alert('اكتب عنوان القراءة والتاريخ');
+ const {error}=await db.from('reading_days').insert({title,passage,notes:document.getElementById('notes').value,reading_date:date,published:document.getElementById('published').checked});
+ if(error){alert(error.message);return}await loadAdminLists();await loadPublishedReading();alert('تم حفظ القراءة.');
+}
+async function addQuestion(){
+ const day=document.getElementById('questionDay').value,question_text=document.getElementById('questionText').value.trim(),option_1=document.getElementById('opt1').value.trim(),option_2=document.getElementById('opt2').value.trim(),option_3=document.getElementById('opt3').value.trim();
+ if(!day||!question_text||!option_1||!option_2||!option_3)return alert('أكمل بيانات السؤال');
+ const {error}=const {data:newQ,error}=await db.from('questions').insert({reading_day_id:day,question_text,option_1,option_2,option_3}).select('id').single();
+ if(!error){const keyError=await db.from('question_answer_keys').insert({question_id:newQ.id,correct_option:Number(document.getElementById('correct').value)});if(keyError.error){alert('تم إنشاء السؤال لكن تعذر حفظ مفتاح الإجابة: '+keyError.error.message);return}}
+ if(error){alert(error.message);return}alert('تمت إضافة السؤال.');document.getElementById('questionText').value='';
+}
+async function loadAdminStats(){
+ const [{count:people},{data:days}]=await Promise.all([db.from('participants').select('*',{count:'exact',head:true}).eq('active',true),db.from('reading_days').select('id').eq('published',true).order('reading_date',{ascending:false}).limit(1)]);
+ document.getElementById('totalPeople').textContent=people||0;
+ if(days?.length){const {count:done}=await db.from('progress').select('*',{count:'exact',head:true}).eq('reading_day_id',days[0].id).eq('completed',true);document.getElementById('donePeople').textContent=done||0;document.getElementById('notDonePeople').textContent=Math.max(0,(people||0)-(done||0));}
+}
+async function loadProgress(){
+ const id=document.getElementById('progressDay').value;if(!id)return;
+ const [{data:people},{data:progress}]=await Promise.all([db.from('participants').select('id,name').eq('active',true).order('name'),db.from('progress').select('participant_id,completed,completed_at').eq('reading_day_id',id)]);
+ const map=new Map((progress||[]).map(x=>[x.participant_id,x]));
+ const box=document.getElementById('adminProgress');box.innerHTML='';
+ (people||[]).forEach(p=>{const x=map.get(p.id);let div=document.createElement('div');div.className='listitem';let b=document.createElement('span');b.className='pill';b.textContent=x?.completed?'أنهى القراءة':'لم يقرأ';div.textContent=p.name+' — ';div.appendChild(b);if(x?.completed_at){let small=document.createElement('small');small.className='muted';small.textContent=' '+new Date(x.completed_at).toLocaleString('ar-EG');div.appendChild(small)}box.appendChild(div)});
+}
+</script>
+</body></html>
